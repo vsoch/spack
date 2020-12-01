@@ -2,6 +2,7 @@
 # Spack Project Developers. See the top-level COPYRIGHT file for details.
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
+import contextlib
 import os
 import sys
 
@@ -12,6 +13,73 @@ import spack.spec
 import spack.store
 import spack.user_environment as uenv
 import spack.util.executable
+from spack.util.environment import EnvironmentModifications
+
+
+@contextlib.contextmanager
+def system_python_context():
+    python_cls = type(spack.spec.Spec('python').package)
+    python_prefix = os.path.dirname(os.path.dirname(sys.executable))
+    externals = python_cls.determine_spec_details(
+        python_prefix, [os.path.basename(sys.executable)])
+    external_python = externals[0]
+
+    entry = {
+        'buildable': False,
+        'externals': [
+            {'prefix': python_prefix, 'spec': str(external_python)}
+        ]
+    }
+
+    with spack.config.override('packages:python::', entry):
+        yield
+
+
+def make_module_available(module, spec=None, install=False):
+    """Ensure module is importable"""
+    # If we already can import it, that's great
+    try:
+        __import__(module)
+        return
+    except ImportError:
+        pass
+
+    # TODO: some way to search for it beyond just installing?
+
+    # If it's already installed, use it
+    spec = spack.spec.Spec(spec or module)
+    spec.constrain('^python@%d.%d' % sys.version_info[:2])
+    installed_specs = spack.store.db.query(spec, installed=True)
+
+    for ispec in installed_specs:
+        # TODO: make sure run-environment is appropriate
+        module_path = os.path.join(ispec.prefix,
+                                   ispec['python'].package.site_packages_dir)
+        try:
+            sys.path.append(module_path)
+            __import__(module)
+            return
+        except ImportError:
+            tty.warn("Spec %s did not provide module %s" % (ispec, module))
+            sys.path = sys.path[:-1]
+
+    if not install:
+        raise Exception  # TODO specify
+
+    with system_python_context():
+        # We will install for ourselves, using this python if needed
+        # Concretize the spec
+        spec.concretize()
+    spec.package.do_install()
+
+    module_path = os.path.join(spec.prefix,
+                               spec['python'].package.site_packages_dir)
+    try:
+        sys.path.append(module_path)
+        __import__(module)
+        return
+    except ImportError:
+        raise Exception  # TODO: specify
 
 
 def get_executable(exe, spec=None, install=False):
@@ -52,22 +120,9 @@ def get_executable(exe, spec=None, install=False):
     if not install:
         raise Exception  # TODO specify
 
-    # We will install for ourselves, using this python if needed
-    # Concretize the spec
-    python_cls = type(spack.spec.Spec('python').package)
-    python_prefix = os.path.dirname(os.path.dirname(sys.executable))
-    externals = python_cls.determine_spec_details(
-        python_prefix, [os.path.basename(sys.executable)])
-    external_python = externals[0]
-
-    entry = {
-        'buildable': False,
-        'externals': [
-            {'prefix': python_prefix, 'spec': str(external_python)}
-        ]
-    }
-
-    with spack.config.override('packages:python::', entry):
+    with system_python_context():
+        # We will install for ourselves, using this python if needed
+        # Concretize the spec
         spec.concretize()
 
     spec.package.do_install()
