@@ -2436,6 +2436,9 @@ class Spec(object):
             raise SpecDeprecatedError(msg)
 
     def _new_concretize(self, tests=False):
+        if self._concrete:
+            return
+
         import spack.solver.asp
 
         if not self.name:

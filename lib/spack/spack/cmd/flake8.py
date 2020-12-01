@@ -16,7 +16,7 @@ from llnl.util.filesystem import working_dir, mkdirp
 
 import spack.paths
 from spack.util.executable import which
-
+from spack.spack_deps import get_executable
 
 description = "runs source code style checks on Spack. requires flake8"
 section = "developer"
@@ -135,6 +135,10 @@ def changed_files(base=None, untracked=True, all_files=False):
             if any(os.path.realpath(f).startswith(e) for e in excludes):
                 continue
 
+            # Ignore broken symlinks
+            if not os.path.exists(f):
+                continue
+
             changed.add(f)
 
     return sorted(changed)
@@ -242,7 +246,7 @@ def setup_parser(subparser):
 
 
 def flake8(parser, args):
-    flake8 = which('flake8', required=True)
+    flake8 = get_executable('flake8', spec='py-flake8', install=True)
 
     temp = tempfile.mkdtemp()
     try:
