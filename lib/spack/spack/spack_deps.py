@@ -40,8 +40,10 @@ def get_executable(exe, spec=None, install=False):
         exe_path = fs.find(ispec.prefix, exe)
         if exe_path:
             ret = spack.util.executable.Executable(exe_path[0])
-            ret.add_default_envmod(
-                uenv.environment_modifications_for_spec(ispec))
+            envmod = EnvironmentModifications()
+            for dep in ispec.traverse(root=True, order='post'):
+                envmod.extend(uenv.environment_modifications_for_spec(dep))
+            ret.add_default_envmod(envmod)
             return ret
         else:
             tty.warn('Exe %s not found in prefix %s' % (exe, ispec.prefix))
@@ -72,8 +74,10 @@ def get_executable(exe, spec=None, install=False):
     exe_path = fs.find(spec.prefix, exe)
     if exe_path:
         ret = spack.util.executable.Executable(exe_path[0])
-        ret.add_default_envmod(
-            uenv.environment_modifications_for_spec(spec))
+        envmod = EnvironmentModifications()
+        for dep in spec.traverse(root=True, order='post'):
+            envmod.extend(uenv.environment_modifications_for_spec(dep))
+        ret.add_default_envmod(envmod)
         return ret
 
     raise Exception  # TODO specify
