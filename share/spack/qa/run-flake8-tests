@@ -15,7 +15,7 @@
 #     run-flake8-tests
 #
 . "$(dirname $0)/setup.sh"
-check_dependencies $coverage # we will bootstrap flake8
+check_dependencies $coverage git
 
 # verify that the code style is correct
 $coverage_run spack flake8
