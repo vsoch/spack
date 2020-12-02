@@ -18,7 +18,7 @@
 check_dependencies $coverage git
 
 # verify that the code style is correct
-$coverage_run spack flake8
+$coverage_run $(which spack) flake8
 
 # verify that the license headers are present
-spack license verify
+$coverage_run $(which spack) license verify
