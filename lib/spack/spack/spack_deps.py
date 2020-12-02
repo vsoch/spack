@@ -44,10 +44,11 @@ def make_module_available(module, spec=None, install=False):
     except ImportError:
         pass
 
-    # TODO: some way to search for it beyond just installing?
-
     # If it's already installed, use it
+    # Search by spec
     spec = spack.spec.Spec(spec or module)
+
+    # We have to run as part of this python
     spec.constrain('^python@%d.%d' % sys.version_info[:2])
     installed_specs = spack.store.db.query(spec, installed=True)
 

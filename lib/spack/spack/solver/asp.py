@@ -459,9 +459,11 @@ class PyclingoDriver(object):
         """
         global clingo
         if not clingo:
-            with open('clingo.yaml') as f:
-                clingo_spec = spack.spec.Spec.from_yaml(f)
-                assert clingo_spec.concrete
+            # TODO: Find a way to vendor the concrete spec
+            # in a cross-platform way
+            clingo_spec = spack.spec.Spec('clingo+python')
+            with spack.spack_deps.system_python_context():
+                clingo_spec._old_concretize()
             spack.spack_deps.make_module_available(
                 'clingo', spec=clingo_spec, install=True)
             import clingo
