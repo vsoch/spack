@@ -21,7 +21,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install --upgrade vermin
-    - name: Minimum Version (Spack's Core)
+    - name: Minimum Version (Spack Core)
       run: vermin --backport argparse -t=2.6- -t=3.5- -v lib/spack/spack/ lib/spack/llnl/ bin/
     - name: Minimum Version (Repositories)
       run: vermin --backport argparse -t=2.6- -t=3.5- -v var/spack/repos
@@ -47,8 +47,8 @@ jobs:
           COVERAGE: true
       run: |
           share/spack/qa/run-flake8-tests
-          coverage combine
-          coverage xml
+#          coverage combine
+#          coverage xml
     - uses: codecov/codecov-action@v1
       with:
         flags: bootstrapping,style,flake
