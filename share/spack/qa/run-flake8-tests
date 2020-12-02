@@ -15,10 +15,10 @@
 #     run-flake8-tests
 #
 . "$(dirname $0)/setup.sh"
-check_dependencies flake8
+check_dependencies $coverage # we will bootstrap flake8
 
 # verify that the code style is correct
-spack flake8
+$coverage_run spack flake8
 
 # verify that the license headers are present
 spack license verify
