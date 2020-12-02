@@ -61,13 +61,15 @@ def make_module_available(module, spec=None, install=False):
         # TODO: make sure run-environment is appropriate
         module_path = os.path.join(ispec.prefix,
                                    ispec['python'].package.site_packages_dir)
+        module_path_64 = module_path.replace('/lib/', '/lib64/')
         try:
             sys.path.append(module_path)
+            sys.path.append(module_path_64)
             __import__(module)
             return
         except ImportError:
             tty.warn("Spec %s did not provide module %s" % (ispec, module))
-            sys.path = sys.path[:-1]
+            sys.path = sys.path[:-2]
 
     if not install:
         raise Exception  # TODO specify
@@ -80,11 +82,14 @@ def make_module_available(module, spec=None, install=False):
 
     module_path = os.path.join(spec.prefix,
                                spec['python'].package.site_packages_dir)
+    module_path_64 = module_path.replace('/lib/', '/lib64/')
     try:
         sys.path.append(module_path)
+        sys.path.append(module_path_64)
         __import__(module)
         return
     except ImportError:
+        sys.path = sys.path[:-2]
         raise Exception  # TODO: specify
 
 

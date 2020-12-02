@@ -237,12 +237,15 @@ class PythonPackage(PackageBase):
             args += ['--single-version-externally-managed']
 
         # Get all relative paths since we set the root to `prefix`
-        site_packages_dir = distutils.sysconfig.get_python_lib(
+        pure_site_packages_dir = distutils.sysconfig.get_python_lib(
+            plat_specific=False, prefix='')
+        plat_site_packages_dir = distutils.sysconfig.get_python_lib(
             plat_specific=True, prefix='')
         inc_dir = distutils.sysconfig.get_python_inc(
             plat_specific=True, prefix='')
         args += ['--root=%s' % prefix,
-                 '--install-lib=%s' % site_packages_dir,
+                 '--install-purelib=%s' % pure_site_packages_dir,
+                 '--install-platlib=%s' % plat_site_packages_dir,
                  '--install-scripts=bin',
                  '--install-data=""',
                  '--install-headers=%s' % inc_dir
