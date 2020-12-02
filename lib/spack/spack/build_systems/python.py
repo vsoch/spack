@@ -237,12 +237,17 @@ class PythonPackage(PackageBase):
             args += ['--single-version-externally-managed']
 
         # Get all relative paths since we set the root to `prefix`
-        pure_site_packages_dir = distutils.sysconfig.get_python_lib(
-            plat_specific=False, prefix='')
-        plat_site_packages_dir = distutils.sysconfig.get_python_lib(
-            plat_specific=True, prefix='')
-        inc_dir = distutils.sysconfig.get_python_inc(
-            plat_specific=True, prefix='')
+        # We query the python with which these will be used for the lib and inc
+        # directories. This ensures we use `lib`/`lib64` as expected by python.
+        python = spec['python'].package.command
+        commands = ';'.join([
+            'import distutils.sysconfig',
+            'print(distutils.sysconfig.get_python_lib(False, prefix=""))',
+            'print(distutils.sysconfig.get_python_lib(True, prefix=""))',
+            'print(distutils.sysconfig.get_python_inc(True, prefix=""))'])
+        pure_site_packages_dir, plat_site_packages_dir, inc_dir = python(
+            '-c', commands, output=str, error=str).strip().split('\n')
+
         args += ['--root=%s' % prefix,
                  '--install-purelib=%s' % pure_site_packages_dir,
                  '--install-platlib=%s' % plat_site_packages_dir,
