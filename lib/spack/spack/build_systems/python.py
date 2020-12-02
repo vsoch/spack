@@ -2,6 +2,7 @@
 # Spack Project Developers. See the top-level COPYRIGHT file for details.
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
+import distutils.sysconfig
 import inspect
 import os
 import shutil
@@ -235,12 +236,16 @@ class PythonPackage(PackageBase):
             'build' in spec._dependencies['py-setuptools'].deptypes):
             args += ['--single-version-externally-managed']
 
-        python_pkg = spec['python'].package
+        # Get all relative paths since we set the root to `prefix`
+        site_packages_dir = distutils.sysconfig.get_python_lib(
+            plat_specific=True, prefix='')
+        inc_dir = distutils.sysconfig.get_python_inc(
+            plat_specific=True, prefix='')
         args += ['--root=%s' % prefix,
-                 '--install-lib=%s' % python_pkg.site_packages_dir,
+                 '--install-lib=%s' % site_packages_dir,
                  '--install-scripts=bin',
                  '--install-data=""',
-                 '--install-headers=%s' % python_pkg.python_include_dir
+                 '--install-headers=%s' % inc_dir
                  ]
 
         return args

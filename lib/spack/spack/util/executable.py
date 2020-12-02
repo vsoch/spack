@@ -22,7 +22,7 @@ class Executable(object):
     def __init__(self, name):
         self.exe = shlex.split(str(name))
         self.default_env = {}
-        from spack.util.environment import EnvironmentModifications # no cycle
+        from spack.util.environment import EnvironmentModifications  # no cycle
         self.default_envmod = EnvironmentModifications()
         self.returncode = None
 
@@ -120,7 +120,7 @@ class Executable(object):
         self.default_envmod.apply_modifications(env)
         env.update(self.default_env)
 
-        from spack.util.environment import EnvironmentModifications # no cycle
+        from spack.util.environment import EnvironmentModifications  # no cycle
         # Apply env argument
         if isinstance(env_arg, EnvironmentModifications):
             env_arg.apply_modifications(env)
