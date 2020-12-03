@@ -241,9 +241,9 @@ class PythonPackage(PackageBase):
         python = spec['python'].package.command
         commands = ';'.join([
             'import distutils.sysconfig',
-            'print(distutils.sysconfig.get_python_lib(False, prefix=""))',
-            'print(distutils.sysconfig.get_python_lib(True, prefix=""))',
-            'print(distutils.sysconfig.get_python_inc(True, prefix=""))'])
+            'print(distutils.sysconfig.get_python_lib(plat_specific=False, prefix=""))',
+            'print(distutils.sysconfig.get_python_lib(plat_specific=True, prefix=""))',
+            'print(distutils.sysconfig.get_python_inc(plat_specific=True, prefix=""))'])
         pure_site_packages_dir, plat_site_packages_dir, inc_dir = python(
             '-c', commands, output=str, error=str).strip().split('\n')
 
