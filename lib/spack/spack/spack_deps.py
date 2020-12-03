@@ -115,13 +115,15 @@ def get_executable(exe, spec=None, install=False):
     spec = spack.spec.Spec(spec or exe)
     installed_specs = spack.store.db.query(spec, installed=True)
     for ispec in installed_specs:
-        # TODO: make sure run-environment is appropriate
-        exe_path = fs.find(ispec.prefix, exe)
+        # filter out directories of the same name as the executable
+        exe_path = [exe_p for exe_p in fs.find(ispec.prefix, exe)
+                    if fs.is_exe(exe_p)]
         if exe_path:
             ret = spack.util.executable.Executable(exe_path[0])
             envmod = EnvironmentModifications()
             for dep in ispec.traverse(root=True, order='post'):
                 envmod.extend(uenv.environment_modifications_for_spec(dep))
+            print(envmod.shell_modifications())
             ret.add_default_envmod(envmod)
             return ret
         else:
@@ -137,7 +139,9 @@ def get_executable(exe, spec=None, install=False):
         spec.concretize()
 
     spec.package.do_install()
-    exe_path = fs.find(spec.prefix, exe)
+    # filter out directories of the same name as the executable
+    exe_path = [exe_p for exe_p in fs.find(spec.prefix, exe)
+                if fs.is_exe(exe_p)]
     if exe_path:
         ret = spack.util.executable.Executable(exe_path[0])
         envmod = EnvironmentModifications()
