@@ -806,3 +806,20 @@ class TestSpecSyntax(object):
     ])
     def test_target_tokenization(self, expected_tokens, spec_string):
         self.check_lex(expected_tokens, spec_string)
+
+    @pytest.mark.parametrize('canonical_form,spec_string', [
+        ('@:!2', '@<2'),
+        ('@2!:', '@>2'),
+        ('@:2', '@<=2'),
+        ('@2:', '@>=2'),
+        ('@2', '@==2'),
+        ('@2:!3', '@==2.*'),
+        ('@2:!3', '@2.*'),
+        ('@2:!3+a', '@2.*+a'),
+        ('@:!2,3:', '@!=2.*'),
+        ('@2!:!4', '@2!:!4'),
+    ])
+    def test_version_inequalities_canonicalization(
+        self, canonical_form, spec_string,
+    ):
+        self.check_parse(canonical_form, spec_string)
