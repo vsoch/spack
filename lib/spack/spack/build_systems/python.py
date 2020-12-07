@@ -239,11 +239,12 @@ class PythonPackage(PackageBase):
         # We query the python with which these will be used for the lib and inc
         # directories. This ensures we use `lib`/`lib64` as expected by python.
         python = spec['python'].package.command
+        command_start = 'print(distutils.sysconfig.'
         commands = ';'.join([
             'import distutils.sysconfig',
-            'print(distutils.sysconfig.get_python_lib(plat_specific=False, prefix=""))',
-            'print(distutils.sysconfig.get_python_lib(plat_specific=True, prefix=""))',
-            'print(distutils.sysconfig.get_python_inc(plat_specific=True, prefix=""))'])
+            command_start + 'get_python_lib(plat_specific=False, prefix=""))',
+            command_start + 'get_python_lib(plat_specific=True, prefix=""))',
+            command_start + 'get_python_inc(plat_specific=True, prefix=""))'])
         pure_site_packages_dir, plat_site_packages_dir, inc_dir = python(
             '-c', commands, output=str, error=str).strip().split('\n')
 
