@@ -67,9 +67,7 @@ dependencies = {
     },
 }
 
-#: Properties for inclusion in other schemas
-properties = {
-    r'\w[\w-]*': {  # package name
+package = {
         'type': 'object',
         'additionalProperties': False,
         'required': [
@@ -80,6 +78,10 @@ properties = {
             'parameters',
         ],
         'properties': {
+            'name': {
+                'type': 'string',
+                'pattern': r'\w[\w-]*',
+             },
             'hash': {'type': 'string'},
             'full_hash': {'type': 'string'},
             'version': {
@@ -152,7 +154,12 @@ properties = {
             },
             'dependencies': dependencies,
         },
-    },
+    }
+
+#: Properties for inclusion in other schemas
+properties = {
+    # package name
+    r'\w[\w-]*': package
 }
 
 
