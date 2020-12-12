@@ -285,6 +285,11 @@ def all_compilers(scope=None):
     return compilers
 
 
+def all_compilers_list(scope=None):
+    """A list of compiler dicts, intended for the export schema"""
+    return [_to_dict(c)['compiler'] for c in all_compilers(scope)]
+
+
 @_auto_compiler_spec
 def compilers_for_spec(compiler_spec, arch_spec=None, scope=None,
                        use_cache=True, init_config=True):

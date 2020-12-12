@@ -14,34 +14,30 @@ from copy import deepcopy
 import spack.schema.spec
 from spack.schema.compilers import properties as compilers
 
-# name of package must be required for export of list
+#: name of package must be required for export of list
 package = deepcopy(spack.schema.spec.package)
 package['required'].append('name')
 
-properties = {
-    'type': 'object',
-    'default': {},
-    'additionalProperties': False,
-    'properties': {
-        'compilers': compilers,
-        'specs': specs,
-    }
-}
-
-# name of package is required for export?
-
+#: A list of specs for packages, and we allow a general _meta section
 specs = {
     'specs': {
         'type': 'array',
         'items': [spack.schema.spec.package]
+    },
+    "_meta": {
+        'type': 'object'
     }
 }
 
+#: Don't edit specs object in case needed elsewhere
+properties = deepcopy(specs)
+properties.update(compilers)
+
 #: Full schema with metadata
 schema = {
-    '$schema': 'http://json-schema.org/schema#',
+    '$schema': 'https://json-schema.org/schema#',
     'title': 'Spack export schema',
     'type': 'object',
     'additionalProperties': False,
-    'patternProperties': properties,
+    'properties': properties,
 }

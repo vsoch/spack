@@ -68,93 +68,55 @@ dependencies = {
 }
 
 package = {
-        'type': 'object',
-        'additionalProperties': False,
-        'required': [
-            'version',
-            'arch',
-            'compiler',
-            'namespace',
-            'parameters',
-        ],
-        'properties': {
-            'name': {
-                'type': 'string',
-                'pattern': r'\w[\w-]*',
-             },
-            'hash': {'type': 'string'},
-            'full_hash': {'type': 'string'},
-            'version': {
-                'oneOf': [
-                    {'type': 'string'},
-                    {'type': 'number'},
-                ],
-            },
-            'arch': arch,
-            'compiler': {
-                'type': 'object',
-                'additionalProperties': False,
-                'properties': {
-                    'name': {'type': 'string'},
-                    'version': {'type': 'string'},
-                },
-            },
-            'develop': {
-                'anyOf': [
-                    {'type': 'boolean'},
-                    {'type': 'string'},
-                ],
-            },
-            'namespace': {'type': 'string'},
-            'parameters': {
-                'type': 'object',
-                'required': [
-                    'cflags',
-                    'cppflags',
-                    'cxxflags',
-                    'fflags',
-                    'ldflags',
-                    'ldlibs',
-                ],
-                'additionalProperties': True,
-                'properties': {
-                    'patches': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'cflags': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'cppflags': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'cxxflags': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'fflags': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'ldflags': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                    'ldlib': {
-                        'type': 'array',
-                        'items': {'type': 'string'},
-                    },
-                },
-            },
-            'patches': {
-                'type': 'array',
-                'items': {},
-            },
-            'dependencies': dependencies,
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["version", "arch", "compiler", "namespace", "parameters"],
+    "properties": {
+        "name": {"type": "string", "pattern": r"\w[\w-]*"},
+        "hash": {"type": "string"},
+        "prefix": {"type": "string"},
+        "full_hash": {"type": "string"},
+        "version": {"oneOf": [{"type": "string"}, {"type": "number"}]},
+        "arch": arch,
+        "compiler": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string"}, "version": {"type": "string"}},
         },
-    }
+        "source": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string"}, "filename": {"type": "string"}},
+        },
+        "develop": {"anyOf": [{"type": "boolean"}, {"type": "string"}]},
+        "namespace": {"type": "string"},
+        "parameters": {
+            "type": "object",
+            "required": [
+                "cflags",
+                "cppflags",
+                "cxxflags",
+                "fflags",
+                "ldflags",
+                "ldlibs",
+            ],
+            "additionalProperties": True,
+            "properties": {
+                "patches": {"type": "array", "items": {"type": "string"}},
+                "cflags": {"type": "array", "items": {"type": "string"}},
+                "cppflags": {"type": "array", "items": {"type": "string"}},
+                "cxxflags": {"type": "array", "items": {"type": "string"}},
+                "fflags": {"type": "array", "items": {"type": "string"}},
+                "ldflags": {"type": "array", "items": {"type": "string"}},
+                "ldlib": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "patches": {"type": "array", "items": {}},
+        "dependencies": dependencies,
+    },
+}
 
 #: Properties for inclusion in other schemas
 properties = {
