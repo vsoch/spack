@@ -12,14 +12,13 @@
 
 from copy import deepcopy
 import spack.schema.spec
-from spack.schema.compilers import properties as compilers
 
 #: name of package must be required for export of list
 package = deepcopy(spack.schema.spec.package)
 package['required'].append('name')
 
 #: A list of specs for packages, and we allow a general _meta section
-specs = {
+properties = {
     'specs': {
         'type': 'array',
         'items': [spack.schema.spec.package]
@@ -28,10 +27,6 @@ specs = {
         'type': 'object'
     }
 }
-
-#: Don't edit specs object in case needed elsewhere
-properties = deepcopy(specs)
-properties.update(compilers)
 
 #: Full schema with metadata
 schema = {

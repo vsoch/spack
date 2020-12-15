@@ -11,7 +11,7 @@ import sys
 import llnl.util.tty as tty
 import spack.repo
 import spack.cmd as cmd
-from spack.cmd.find import query_arguments
+from spack.cmd.find import query_arguments, setup_parser # noqa
 
 import spack.user_environment as uenv
 import spack.util.spack_json as sjson
@@ -69,5 +69,4 @@ def generate_export(results, loaded=False, tags=None, scope=None):
     return {
         "_meta": generate_export_metadata(),
         "specs": cmd.get_specs_as_dict(results, deps=True),
-        "compilers": spack.compilers.all_compilers_list(scope=scope)
     }
