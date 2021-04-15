@@ -264,6 +264,7 @@ class PyclingoDriver(object):
                 import clingo
         self.out = asp or llnl.util.lang.Devnull()
         self.cores = cores
+        self.assumptions = []
 
     def title(self, name, char):
         self.out.write('\n')
@@ -293,12 +294,13 @@ class PyclingoDriver(object):
         if self.cores:
             self.assumptions.append(atom)
 
-    def solve(
-            self, solver_setup, specs, dump=None, nmodels=0,
-            timers=False, stats=False, tests=False
-    ):
-        timer = Timer()
+    def init_control(self, nmodels=0):
+        """Initialize the controller for the solver.
 
+        In the case that we don't need to run solve, this function is separate
+        from solve, below. This function should be called, and then used in
+        the context of creating the backend (see solve usage below).
+        """
         # Initialize the control object for the solver
         self.control = clingo.Control()
         self.control.configuration.solve.models = nmodels
@@ -308,8 +310,15 @@ class PyclingoDriver(object):
         self.control.configuration.solve.parallel_mode = '2'
         self.control.configuration.solver.opt_strategy = "usc,one"
 
+    def solve(
+            self, solver_setup, specs, dump=None, nmodels=0,
+            timers=False, stats=False, tests=False
+    ):
+        timer = Timer()
+
+        self.init_control(nmodels)
+
         # set up the problem -- this generates facts and rules
-        self.assumptions = []
         with self.control.backend() as backend:
             self.backend = backend
             solver_setup.setup(self, specs, tests=tests)

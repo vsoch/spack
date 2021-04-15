@@ -60,6 +60,7 @@ are available:
     environment_variables    : environment variables parsed from spack-build-env.txt
     config_args              : config args loaded from spack-configure-args.txt
     abigail                  : Application Binary Interface (ABI) features for objects
+    clingo                   : Dwarf and ELF Symbols in a logic program for a library.
 
 
 In the above, the first three are fairly simple - parsing metadata files from
@@ -160,3 +161,30 @@ before, and a message that the monitor server was pinged:
     $ spack analyze --monitor wget
     ...
     ==> Sending result for wget bin/wget to monitor.
+    
+    
+---------
+Analyzers
+---------
+
+The following sections include analyzer specific documentation, if needed.
+
+^^^^^^
+clingo
+^^^^^^
+
+The clingo analyzer will generate a logic program file, meaning facts that
+can be used with clingo. Importantly, you **must** build the library you
+intend to analyze with debug information. For example, the package ``tcl``
+only requires ``zlib``, and we can build both with debug and then run the analyzer:
+
+.. code-block:: console
+
+    $ spack install zlib+debug
+    $ spack install tcl+debug
+    $ spack analyze run  -a clingo tcl
+    
+If you don't have pyelftools installed, the analyzer will bootstrap it first,
+and then continue to extract debug information. At the end, you'll have files
+saved to your analyzer folder for tcl.
+    
