@@ -20,7 +20,7 @@ import os
 class Clingo(AnalyzerBase):
 
     name = "clingo"
-    outfile = "abi-facts.json"
+    outfile = "abi-facts.lp"
     description = "Dwarf and ELF Symbols in a logic program for a library."
 
     def run(self):
@@ -37,27 +37,35 @@ class Clingo(AnalyzerBase):
 
         # The manifest includes the spec binar(y|(ies)
         # We extract facts for all binaries, even if they get used separately
+        # We also keep track of these "main" binaries that are being assessed
         manifest = spack.binary_distribution.get_buildfile_manifest(spec)
-        libs = manifest['binary_to_relocate_fullpath']
+        main = manifest['binary_to_relocate_fullpath']
 
         # We need the compiler too
         compiler = which(spec.compiler.name).path
         compilers = {compiler}
 
         # Find all needed libraries
+        libs = []
         for dep in spec.dependencies():
             manifest = spack.binary_distribution.get_buildfile_manifest(dep)
             libs += manifest['binary_to_relocate_fullpath']
             compiler = which(dep.compiler.name).path
             compilers.add(compiler)
 
-        libs += list(compilers)
-        facts = generate_facts(libs)
-        outfile = os.path.join(self.output_dir, "abi-facts.lp")
-
-        # Only try to create the results directory if we have a result
+        # Generate facts, writing to file as we go
+        outfile = os.path.join(self.output_dir, self.outfile)
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
+        libs += list(compilers)
+        generate_facts(main, libs, outfile)
+        return {self.name: outfile}
 
-        spack.monitor.write_file(facts, outfile)
-        return {self.name: facts}
+    def save_result(self, result, overwrite=False):
+        """
+        Read saved fact results and upload to monitor server.
+
+        We haven't written this yet because we don't know what we would want
+        to upload.
+        """
+        pass

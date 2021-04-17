@@ -6,7 +6,6 @@ import hashlib
 import itertools
 import os
 import re
-import io
 
 try:
     import elftools
@@ -15,6 +14,7 @@ except ImportError:
 
 from .corpus import Corpus, et
 from spack.solver.asp import AspFunction, AspFunctionBuilder
+from spack.util.executable import which
 import spack.solver.asp
 import spack.main
 
@@ -22,7 +22,7 @@ fn = AspFunctionBuilder()
 
 
 # only parse these tags
-parse_tags = {"dw_tag_subprogram", "dw_tag_formal_parameter"}
+parse_tags = {"dw_tag_subprogram", "dw_tag_formal_parameter", "dw_tag_function"}
 
 
 class ABIFactGenerator(object):
@@ -34,6 +34,9 @@ class ABIFactGenerator(object):
         # A lookup of DIEs based on corpus path (first key) and id
         # (second key) DIE == Dwarf Information Entry
         self.die_lookup = {}
+
+        # Filter down originally to needed symbols for smaller output
+        self.needed_symbols = set()
 
         # A lookup of DIE children ids
         self.child_lookup = {}
@@ -50,55 +53,33 @@ class ABIFactGenerator(object):
                 )
                 import elftools
 
-    def generate_elf_symbols(self, corpora, prefix=""):
+    def generate_elf_symbols(self, corpora):
         """For each corpus, write out elf symbols as facts.
         """
-        # If we have a prefix, add a spacer
-        prefix = "%s_" % prefix if prefix else ""
-
         for corpus in corpora:
             self.gen.h2("Corpus symbols: %s" % corpus.path)
 
             for symbol, meta in corpus.elfsymbols.items():
 
                 # It begins with a NULL symbol, not sure it's useful
-                if not symbol:
+                if not symbol or symbol not in self.needed_symbols:
                     continue
 
-                self.gen.fact(AspFunction(prefix + "symbol", args=[symbol]))
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "symbol_type", args=[corpus.path, symbol, meta["type"]]
-                    )
-                )
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "symbol_version",
-                        args=[corpus.path, symbol, meta["version_info"]],
-                    )
-                )
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "symbol_binding",
-                        args=[corpus.path, symbol, meta["binding"]],
-                    )
-                )
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "symbol_visibility",
-                        args=[corpus.path, symbol, meta["visibility"]],
-                    )
-                )
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "symbol_definition",
-                        args=[corpus.path, symbol, meta["defined"]],
-                    )
-                )
+                # Prepare variables
+                vinfo = meta['version_info']
+                vis = meta['visibility']
+                defined = meta['defined']
 
-                # Might be redundant
-                has = "has_%s" % prefix if prefix else "has_"
-                self.gen.fact(AspFunction(has + "symbol", args=[corpus.path, symbol]))
+                # If the symbol has @@ in the name, it includes the version.
+                if "@@" in symbol and not vinfo:
+                    symbol, vinfo = symbol.split('@', 1)
+
+                self.gen.fact(fn.symbol(symbol))
+                self.gen.fact(fn.symbol_type(corpus.path, symbol, meta['type']))
+                self.gen.fact(fn.symbol_version(corpus.path, symbol, vinfo))
+                self.gen.fact(fn.symbol_binding(corpus.path, symbol, meta['binding']))
+                self.gen.fact(fn.symbol_visibility(corpus.path, symbol, vis))
+                self.gen.fact(fn.symbol_definition(corpus.path, symbol, defined))
                 self.gen.fact(fn.has_symbol(corpus.path, symbol))
 
     def bytes2str(self, item):
@@ -116,19 +97,9 @@ class ABIFactGenerator(object):
             hasher.update(parent.encode("utf-8"))
         return hasher.hexdigest()
 
-    def generate_needed(self, corpora):
+    def generate_dwarf_information_entries(self, corpora):
         """
         Given a list of corpora, add needed libraries from dynamic tags.
-        """
-        for corpus in corpora:
-            for needed in corpus.dynamic_tags.get("needed", []):
-                self.gen.fact(fn.corpus_needs_library(corpus.path, needed))
-
-    def generate_dwarf_information_entries(self, corpora, prefix=""):
-        """
-        Given a list of corpora, add needed libraries from dynamic tags.
-
-        For needed corpus attributes, we add a prefix.
         """
         # We will keep a lookup of die
         for corpus in corpora:
@@ -145,20 +116,15 @@ class ABIFactGenerator(object):
                 if not die.tag:
                     continue
 
-                # We are skipping these tags for now
-                if die.tag not in parse_tags:
-                    continue
-
-                self.gen.h2("Corpus DIE: %s" % corpus.path)
-
                 # Parse the die entry!
-                self._parse_die_children(corpus, die, prefix=prefix)
+                self._parse_die_children(corpus, die)
 
-    def _add_children(self, corpus, die, prefix=None):
+    def _add_children(self, corpus, die):
         """
         Add children ids to the lookup, ensuring we print the relationship
         only once.
         """
+        tag = self._get_tag(die)
 
         def uid(corpus, die):
             return "%s_%s" % (corpus.path, die.abbrev_code)
@@ -168,10 +134,6 @@ class ABIFactGenerator(object):
         # Add the child lookup
         if die.unique_id not in lookup:
             lookup[die.unique_id] = set()
-
-        # If we have a prefix, add a _
-        if prefix and not prefix.endswith('_'):
-            prefix = "%s_" % prefix
 
         # If it's a DW_TAG_subprogram, keep track of child parameter order
         # We add one each time, so count starts at 0 after that
@@ -186,14 +148,16 @@ class ABIFactGenerator(object):
             formal = "DW_TAG_formal_parameter"
             if die.tag == "DW_TAG_subprogram" and child.tag == formal:
                 parameter_count += 1
-                order = prefix + "dw_tag_formal_parameter_order"
+                prefix = "dw_tag_formal_parameter_order"
                 self.gen.fact(
-                    AspFunction(order, args=[corpus.path, child_id, parameter_count])
+                    AspFunction(prefix, args=[corpus.path, child_id, parameter_count])
                 )
 
-            self.gen.fact(fn.die_has_child(die.unique_id, child_id))
+            # Only add the child if it's a tag to parse
+            if child.tag in parse_tags or tag in parse_tags:
+                self.gen.fact(fn.has_child(die.unique_id, child_id))
 
-    def _get_tag(self, die, prefix):
+    def _get_tag(self, die):
         """Get a clingo appropriate tag name.
 
         The die tag needs to be parsed to be all lowercase, and for some
@@ -205,13 +169,9 @@ class ABIFactGenerator(object):
         # A subprogram is a function
         if "subprogram" in tag:
             tag = re.sub('subprogram', 'function', tag)
-
-        # Special cases of
-        if prefix:
-            tag = "%s_%s" % (prefix.lower(), tag)
         return tag
 
-    def _parse_die_children(self, corpus, die, parent=None, prefix=""):
+    def _parse_die_children(self, corpus, die, parent=None):
         """
         Parse die children, writing facts for attributions and relationships.
 
@@ -232,20 +192,17 @@ class ABIFactGenerator(object):
         and make sure not missing anything. Tags are on page 28.
         """
         # Get the tag for the die
-        tag = self._get_tag(die, prefix)
+        tag = self._get_tag(die)
 
         # Keep track of unique id (hash of attributes, parent, and corpus)
         die.unique_id = self._die_hash(die, corpus, parent)
 
-        # Don't parse an entry twice
-        # if die.abbrev_code in self.die_lookup[corpus.path]:
-        #    return
-
         # Create a top level entry for the die based on it's tag type
-        self.gen.fact(AspFunction(tag, args=[corpus.path, die.unique_id]))
+        if tag in parse_tags:
+            self.gen.fact(AspFunction(tag, args=[corpus.path, die.unique_id]))
 
         # Children are represented as facts
-        self._add_children(corpus, die, prefix)
+        self._add_children(corpus, die)
 
         # Add to the lookup
         self.die_lookup[corpus.path][die.abbrev_code] = die
@@ -255,7 +212,7 @@ class ABIFactGenerator(object):
 
         # Parse the tag if we have a matching function
         function_name = "_parse_%s" % die.tag.replace('DW_TAG_', '')
-        if hasattr(self, function_name):
+        if hasattr(self, function_name) and tag in parse_tags:
             getattr(self, function_name)(corpus, die, tag)
 
         # We keep a handle on the root to return
@@ -264,7 +221,7 @@ class ABIFactGenerator(object):
 
         if die.has_children:
             for child in die.iter_children():
-                self._parse_die_children(corpus, child, parent, prefix)
+                self._parse_die_children(corpus, child, parent)
 
     def _parse_common_attributes(self, corpus, die, tag):
         """
@@ -273,6 +230,10 @@ class ABIFactGenerator(object):
         It's actually easier to just check for an attribute, and parse it
         if it's present, and be sure that we don't miss any.
         """
+        # We are skipping these tags for now
+        if tag not in parse_tags:
+            return
+
         if "DW_AT_name" in die.attributes:
             name = self.bytes2str(die.attributes["DW_AT_name"].value)
             self.gen.fact(
@@ -293,20 +254,6 @@ class ABIFactGenerator(object):
                 )
             )
 
-        # Declaration line
-        if "DW_AT_decl_line" in die.attributes:
-            line = die.attributes["DW_AT_decl_line"].value
-            self.gen.fact(
-                AspFunction(tag + "_line", args=[corpus.path, die.unique_id, line])
-            )
-
-        # Declaration column
-        if "DW_AT_decl_column" in die.attributes:
-            column = die.attributes["DW_AT_decl_column"].value
-            self.gen.fact(
-                AspFunction(tag + "_column", args=[corpus.path, die.unique_id, column])
-            )
-
         # The size this DIE occupies in the section (not sure about units)
         if hasattr(die, "size"):
             self.gen.fact(
@@ -315,66 +262,10 @@ class ABIFactGenerator(object):
                 )
             )
 
-        # "If the name of the subroutine described by an entry with the tag
-        # DW_TAG_subprogram is visible outside of its containing compilation unit
-        # that entry has a DW_AT_external attribute, which is a flag."
-        # I think this is visibility? But let's call it external in case not.
-        if (
-            "DW_AT_external" in die.attributes
-            and die.attributes["DW_AT_external"].value is True
-        ):
-            args = [corpus.path, die.unique_id, name]
-            self.gen.fact(AspFunction(tag + "_external", args=args))
-
-        # This looks like the "mangled string" for a subprogram
         if "DW_AT_linkage_name" in die.attributes:
             name = self.bytes2str(die.attributes["DW_AT_linkage_name"].value)
             args = [corpus.path, die.unique_id, name]
             self.gen.fact(AspFunction(tag + "_mangled_name", args=args))
-
-        if (
-            "DW_AT_explicit" in die.attributes
-            and die.attributes["DW_AT_explicit"].value is True
-        ):
-            self.gen.fact(
-                AspFunction(tag + "_explicit", args=[corpus.path, die.unique_id, "yes"])
-            )
-        if (
-            "DW_AT_defaulted" in die.attributes
-            and die.attributes["DW_AT_defaulted"].value is True
-        ):
-            self.gen.fact(
-                AspFunction(
-                    tag + "_defaulted", args=[corpus.path, die.unique_id, "yes"]
-                )
-            )
-
-        if "DW_AT_const_value" in die.attributes:
-            # This might not easily map to clingo (e.g., [0],) so we make a string
-            const_value = str(die.attributes["DW_AT_const_value"].value)
-            self.gen.fact(
-                AspFunction(
-                    tag + "_const_value", args=[corpus.path, die.unique_id, const_value]
-                )
-            )
-
-        if "DW_AT_const_expr" in die.attributes:
-            self.gen.fact(
-                AspFunction(
-                    tag + "_const_expr", args=[corpus.path, die.unique_id, "yes"]
-                )
-            )
-
-        # E.g., 7	(unsigned)
-        if "DW_AT_encoding" in die.attributes:
-            encoding = et.dwarf.describe_attr_value(
-                die.attributes["DW_AT_encoding"], die, die.offset
-            )
-            self.gen.fact(
-                AspFunction(
-                    tag + "_encoding", args=[corpus.path, die.unique_id, encoding]
-                )
-            )
 
     def _parse_die_type(self, corpus, die, tag, lookup_die=None):
         """
@@ -488,12 +379,47 @@ class ABIFactGenerator(object):
         # Assumes there is one language per binary
         self.gen.fact(fn.language(corpus.path, language))
 
-    def generate_corpus_metadata(self, corpora, prefix=""):
-        """Given a list of corpora, create a fact for each one. If we need them,
-        we can add elfheaders here.
+    def set_needed_symbols(self, corpora, main):
         """
-        prefix = "%s_" % prefix if prefix else ""
+        Set needed symbols that we should filter to.
+        """
+        for corpus in corpora:
+            if corpus.path in main:
+                for symbol, meta in corpus.elfsymbols.items():
+                    self.needed_symbols.add(symbol)
 
+    def generate_main(self, corpora, main):
+        """
+        Label a set of corpora as the main ones we are assessing for compatibility.
+        """
+        # Use ldd to find a needed path. Assume we are on some system compiled on.
+        for corpus in corpora:
+            if corpus.path in main:
+                self.gen.fact(fn.is_main_corpus(corpus.path))
+                self.generate_needed(corpus)
+
+    def generate_needed(self, corpus):
+        """
+        Generate symbols from needed libraries.
+        """
+        ldd = which('ldd')
+        output = ldd(corpus.path, output=str)
+
+        syscorpora = []
+        for line in output.split('\n'):
+            if "=>" in line:
+                lib, path = line.split('=>')
+                lib = lib.strip()
+                path = path.strip().split(' ')[0]
+                if os.path.exists(path) and lib in corpus.needed:
+                    syscorpora.append(Corpus(path))
+
+        self.generate_elf_symbols(syscorpora)
+
+    def generate_corpus_metadata(self, corpora):
+        """
+        Given a list of corpora, create a fact for each one.
+        """
         # Use the corpus path as a unique id (ok if binaries exist)
         # This would need to be changed if we don't have the binary handy
         for corpus in corpora:
@@ -502,13 +428,7 @@ class ABIFactGenerator(object):
             self.gen.h2("Corpus facts: %s" % corpus.path)
 
             self.gen.fact(fn.corpus(corpus.path))
-            self.gen.fact(AspFunction(prefix + "corpus", args=[corpus.path]))
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_name",
-                    args=[corpus.path, os.path.basename(corpus.path)],
-                )
-            )
+            self.gen.fact(fn.corpus_name(corpus.path, os.path.basename(corpus.path)))
 
             # e_ident is ELF identification
             # https://docs.oracle.com/cd/E19683-01/816-1386/chapter6-35342/index.html
@@ -517,74 +437,36 @@ class ABIFactGenerator(object):
 
             # If the corpus has a soname:
             if corpus.soname:
-                self.gen.fact(
-                    AspFunction(
-                        prefix + "corpus_soname", args=[corpus.path, corpus.soname]
-                    )
-                )
+                self.gen.fact(fn.corpus_soname(corpus.path, corpus.soname))
 
             # File class (also at elffile.elfclass or corpus.elfclass
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_class",
-                    args=[corpus.path, hdr["e_ident"]["EI_CLASS"]],
-                )
-            )
+            self.gen.fact(fn.corpus_class(corpus.path, hdr["e_ident"]["EI_CLASS"]))
 
             # Data encoding
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_data_encoding",
-                    args=[corpus.path, hdr["e_ident"]["EI_DATA"]],
-                )
-            )
+            encoding = hdr["e_ident"]["EI_DATA"]
+            self.gen.fact(fn.corpus_data_encoding(corpus.path, encoding))
 
             # File version
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_file_version",
-                    args=[corpus.path, hdr["e_ident"]["EI_VERSION"]],
-                )
-            )
+            version = hdr["e_ident"]["EI_VERSION"]
+            self.gen.fact(fn.corpus_file_version(corpus.path, version))
 
             # Operating system / ABI Information
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_osabi",
-                    args=[corpus.path, hdr["e_ident"]["EI_OSABI"]],
-                )
-            )
+            self.gen.fact(fn.corpus_osabi(corpus.path, hdr["e_ident"]["EI_OSABI"]))
 
             # Abi Version
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_abiversion",
-                    args=[corpus.path, hdr["e_ident"]["EI_ABIVERSION"]],
-                )
-            )
+            version = hdr["e_ident"]["EI_ABIVERSION"]
+            self.gen.fact(fn.corpus_abiversion(corpus.path, version))
 
             # e_type is the object file type
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_type", args=[corpus.path, hdr["e_type"]]
-                )
-            )
+            self.gen.fact(fn.corpus_type(corpus.path, hdr["e_type"]))
 
             # e_machine is the required architecture for the file
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_machine", args=[corpus.path, hdr["e_machine"]]
-                )
-            )
+            self.gen.fact(fn.corpus_machine(corpus.path, hdr["e_machine"]))
 
             # object file version
-            self.gen.fact(
-                AspFunction(
-                    prefix + "corpus_version", args=[corpus.path, hdr["e_version"]]
-                )
-            )
+            self.gen.fact(fn.corpus_version(corpus.path, hdr["e_version"]))
 
-    def generate(self, driver, corpora):
+    def generate(self, driver, corpora, main):
         """
         Generate facts for a set of corpora.
 
@@ -601,10 +483,16 @@ class ABIFactGenerator(object):
 
         self.gen.h1("Corpus Facts")
 
+        # Figure out needed symbols
+        self.set_needed_symbols(corpora, main)
+
+        # Label main libraries we are assessing
+        self.generate_main(corpora, main)
+
         # Generate high level corpus metadata facts (e.g., header)
         self.generate_corpus_metadata(corpora)
 
-        # generate all elf symbols (might be able to make this smaller set)
+        # Generate all elf symbols (might be able to make this smaller set)
         self.generate_elf_symbols(corpora)
 
         # Generate dwarf information entries
@@ -614,28 +502,33 @@ class ABIFactGenerator(object):
 # Functions intended to be called by external clients
 
 
-def generate_facts(libs):
+def generate_facts(main, libs, outfile):
     """
     A single function to generate facts for one or more corpora.
+
+    Arguments:
+      main (list) : the main list of libraries
+      libs (list) : dependency libraries to assess
+      outfile (str) : the output file to write to as we go
     """
     if not isinstance(libs, list):
         libs = [libs]
 
     # We use the PyClingoDriver only to write (not to solve)
     driver = spack.solver.asp.PyclingoDriver()
-    driver.out = io.StringIO()
+    out = open(outfile, 'w')
+    driver.out = out
 
     # The generator translates corpora to atoms
     gen = ABIFactGenerator(driver)
 
     corpora = []
-    for lib in libs:
+    for lib in libs + main:
         corpora.append(Corpus(lib))
 
     driver.init_control()
     with driver.control.backend() as backend:
         driver.backend = backend
-        gen.generate(driver, corpora)
+        gen.generate(driver, corpora, main)
 
-    # Return the facts as a string
-    return driver.out.getvalue()
+    out.close()
