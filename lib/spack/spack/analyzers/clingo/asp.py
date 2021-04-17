@@ -67,18 +67,18 @@ class ABIFactGenerator(object):
 
                 # Prepare variables
                 vinfo = meta['version_info']
-                vis = meta['visibility']
+                # vis = meta['visibility']
                 defined = meta['defined']
 
                 # If the symbol has @@ in the name, it includes the version.
                 if "@@" in symbol and not vinfo:
-                    symbol, vinfo = symbol.split('@', 1)
+                    symbol, _ = symbol.split('@', 1)
 
                 self.gen.fact(fn.symbol(symbol))
-                self.gen.fact(fn.symbol_type(corpus.path, symbol, meta['type']))
-                self.gen.fact(fn.symbol_version(corpus.path, symbol, vinfo))
-                self.gen.fact(fn.symbol_binding(corpus.path, symbol, meta['binding']))
-                self.gen.fact(fn.symbol_visibility(corpus.path, symbol, vis))
+                # self.gen.fact(fn.symbol_type(corpus.path, symbol, meta['type']))
+                # self.gen.fact(fn.symbol_version(corpus.path, symbol, vinfo))
+                # self.gen.fact(fn.symbol_binding(corpus.path, symbol, meta['binding']))
+                # self.gen.fact(fn.symbol_visibility(corpus.path, symbol, vis))
                 self.gen.fact(fn.symbol_definition(corpus.path, symbol, defined))
                 self.gen.fact(fn.has_symbol(corpus.path, symbol))
 
@@ -153,8 +153,7 @@ class ABIFactGenerator(object):
                     AspFunction(prefix, args=[corpus.path, child_id, parameter_count])
                 )
 
-            # Only add the child if it's a tag to parse
-            if child.tag in parse_tags or tag in parse_tags:
+            if tag in parse_tags or die.tag in parse_tags or child.tag in parse_tags:
                 self.gen.fact(fn.has_child(die.unique_id, child_id))
 
     def _get_tag(self, die):
@@ -198,8 +197,7 @@ class ABIFactGenerator(object):
         die.unique_id = self._die_hash(die, corpus, parent)
 
         # Create a top level entry for the die based on it's tag type
-        if tag in parse_tags:
-            self.gen.fact(AspFunction(tag, args=[corpus.path, die.unique_id]))
+        self.gen.fact(AspFunction(tag, args=[corpus.path, die.unique_id]))
 
         # Children are represented as facts
         self._add_children(corpus, die)
@@ -384,7 +382,7 @@ class ABIFactGenerator(object):
         Set needed symbols that we should filter to.
         """
         for corpus in corpora:
-            if corpus.path in main:
+            if corpus.path == main:
                 for symbol, meta in corpus.elfsymbols.items():
                     self.needed_symbols.add(symbol)
 
@@ -394,7 +392,7 @@ class ABIFactGenerator(object):
         """
         # Use ldd to find a needed path. Assume we are on some system compiled on.
         for corpus in corpora:
-            if corpus.path in main:
+            if corpus.path == main:
                 self.gen.fact(fn.is_main_corpus(corpus.path))
                 self.generate_needed(corpus)
 
@@ -504,10 +502,9 @@ class ABIFactGenerator(object):
 
 def generate_facts(main, libs, outfile):
     """
-    A single function to generate facts for one or more corpora.
+    A single function to generate facts for one or more library corpora.
 
     Arguments:
-      main (list) : the main list of libraries
       libs (list) : dependency libraries to assess
       outfile (str) : the output file to write to as we go
     """
@@ -523,7 +520,7 @@ def generate_facts(main, libs, outfile):
     gen = ABIFactGenerator(driver)
 
     corpora = []
-    for lib in libs + main:
+    for lib in libs + [main]:
         corpora.append(Corpus(lib))
 
     driver.init_control()
