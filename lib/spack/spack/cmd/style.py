@@ -27,7 +27,7 @@ else:
 
 description = "runs source code style checks on spack"
 section = "developer"
-level = "long"
+level = "long"  
 
 
 def grouper(iterable, n, fillvalue=None):
