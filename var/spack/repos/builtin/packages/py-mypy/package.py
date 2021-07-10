@@ -19,17 +19,10 @@ class PyMypy(PythonPackage):
 
     variant('python2', default=False, description='Enable checking of python 2 type annotations')
 
-    depends_on('python@3.5:', type=('build', 'run'))
+    depends_on('python@3.5:3.8', type=('build', 'run'))
     depends_on('py-setuptools', type=('build', 'run'))
     depends_on('py-typed-ast@1.4.0:1.4.999', when='@0.900:+python2', type=('build', 'run'))
     depends_on('py-typed-ast@1.4.0:1.4.999', when='@:899', type=('build', 'run'))
     depends_on('py-typing-extensions@3.7.4:', type=('build', 'run'))
     depends_on('py-mypy-extensions@0.4.3:0.4.999', type=('build', 'run'))
     depends_on('py-toml', when='@0.900:', type=('build', 'run'))
-
-    # fix issue with mypy not building with Python 3.9
-    patch(
-        "https://github.com/python/typed_ast/commit/c6bf09c77290214408565dd33fa7236d0868134a.patch",
-        sha256="800207a48d858831c181c77bed2c377c9616f7f803718f2ecdfbcda4fed62d89",
-        when="@0.900:",
-    )
