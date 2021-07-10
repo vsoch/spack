@@ -269,7 +269,7 @@ def gray_hash(spec, length):
     return colorize('@K{%s}' % h)
 
 
-def display_specs_as_json(specs, deps=False):
+def get_specs_as_dict(specs, deps=False):
     """Convert specs to a list of json records."""
     seen = set()
     records = []
@@ -285,7 +285,13 @@ def display_specs_as_json(specs, deps=False):
                     continue
                 seen.add(dep.dag_hash())
                 records.append(dep.to_record_dict())
+    return records
 
+
+def display_specs_as_json(specs, deps=False):
+    """Convert specs to a list of json records."""
+
+    records = get_specs_as_dict(specs, deps=deps)
     sjson.dump(records, sys.stdout)
 
 

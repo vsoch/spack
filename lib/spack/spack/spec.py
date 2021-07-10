@@ -1566,42 +1566,64 @@ class Spec(object):
         return spack.util.hash.base32_prefix_bits(self.dag_hash(), bits)
 
     def to_node_dict(self, hash=ht.dag_hash):
-        """Create a dictionary representing the state of this Spec.
+        """Create a dictionary representing the state of this Spec. Empty
+           values (e.g., compiler parameters) are not included.
 
         ``to_node_dict`` creates the content that is eventually hashed by
         Spack to create identifiers like the DAG hash (see
-        ``dag_hash()``).  Example result of ``to_node_dict`` for the
-        ``sqlite`` package::
+        ``dag_hash()``).  Example (truncated) result of ``to_node_dict``
+        for the ``sqlite`` package::
 
             {
-                'sqlite': {
-                    'version': '3.28.0',
-                    'arch': {
-                        'platform': 'darwin',
-                        'platform_os': 'mojave',
-                        'target': 'x86_64',
+                "version": "3.33.0",
+                "arch": {
+                    "platform": "linux",
+                    "platform_os": "ubuntu18.04",
+                    "target": {
+                        "name": "skylake",
+                        "vendor": "GenuineIntel",
+                        "features": [
+                            "adx",
+                            "aes",
+                            "avx",
+                            ...
+                            "ssse3",
+                            "xsavec",
+                            "xsaveopt"
+                        ],
+                        "generation": 0,
+                        "parents": [
+                            "broadwell"
+                        ]
+                    }
+                },            
+                "compiler": {            
+                    "name": "gvcc",
+                    "version": "7.5.0"
+                },
+                "namespace": "builtin",
+                "parameters": {
+                    "column_metadata": true,
+                    "fts": true,
+                    "functions": false,
+                    "rtree": false
+                },
+                "prefix": "...sqlite-3.33.0-542j4smsc2j3jkjowrebyc5s77kna4d4",
+                "dependencies": {
+                    "readline": {
+                        "hash": "l3bzhbkekxg3ggeov4cjh3gaj5jdplet",
+                        "type": [
+                            "build",
+                            "link"
+                        ]
                     },
-                    'compiler': {
-                        'name': 'apple-clang',
-                        'version': '10.0.0',
-                    },
-                    'namespace': 'builtin',
-                    'parameters': {
-                        'fts': 'true',
-                        'functions': 'false',
-                        'cflags': [],
-                        'cppflags': [],
-                        'cxxflags': [],
-                        'fflags': [],
-                        'ldflags': [],
-                        'ldlibs': [],
-                    },
-                    'dependencies': {
-                        'readline': {
-                            'hash': 'zvaa4lhlhilypw5quj3akyd3apbq5gap',
-                            'type': ['build', 'link'],
-                        }
-                    },
+                    "zlib": {
+                        "hash": "fz2bs562jhc2spgubs3fvq25g3qymz6x",
+                        "type": [
+                            "build",
+                            "link"
+                        ]
+                    }
                 }
             }
 
@@ -1637,7 +1659,8 @@ class Spec(object):
             )
         )
 
-        params.update(sorted(self.compiler_flags.items()))
+        # Only add compilers params if they aren't empty
+        params.update(sorted(x for x in self.compiler_flags.items() if x[1]))
         if params:
             d['parameters'] = params
 
@@ -1647,6 +1670,9 @@ class Spec(object):
                 ('module', self.external_modules),
                 ('extra_attributes', self.extra_attributes)
             ])
+
+        if self.prefix:
+            d['prefix'] = self.prefix
 
         if not self._concrete:
             d['concrete'] = False
