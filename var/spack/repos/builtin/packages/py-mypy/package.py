@@ -19,7 +19,8 @@ class PyMypy(PythonPackage):
 
     variant('python2', default=False, description='Enable checking of python 2 type annotations')
 
-    depends_on('python@3.5:3.8', type=('build', 'run'))
+    depends_on("python@3.5:")  # any python over 3.5 in general
+    depends_on("python@:3.8", when="@:0.900")  # Max 3.8 when <= v0.9
     depends_on('py-setuptools', type=('build', 'run'))
     depends_on('py-typed-ast@1.4.0:1.4.999', when='@0.900:+python2', type=('build', 'run'))
     depends_on('py-typed-ast@1.4.0:1.4.999', when='@:899', type=('build', 'run'))
