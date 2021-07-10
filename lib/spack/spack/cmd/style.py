@@ -48,7 +48,7 @@ exclude_directories = [spack.paths.external_path]
 #: order in which tools should be run. flake8 is last so that it can
 #: double-check the results of other tools (if, e.g., --fix was provided)
 tool_order = ["isort", "mypy", "black", "flake8"]
-tool_versions = {"isort": "@4.3.5", "mypy": ":0.900"}
+tool_versions = {"isort": "4.3.5", "mypy": "0.900:"}
 
 #: tools we run in spack style
 tools = {}
@@ -348,7 +348,7 @@ def style(parser, args):
 
                 # Some tools have a required version
                 if tool_name in tool_versions:
-                    tool_name = "%s%s" % (tool_name, tool_versions[tool_name])
+                    tool_name = "%s@%s" % (tool_name, tool_versions[tool_name])
 
                 # Bootstrap tools so we don't need to require install
                 with spack.bootstrap.ensure_bootstrap_configuration():
