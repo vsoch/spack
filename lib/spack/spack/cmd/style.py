@@ -14,6 +14,7 @@ import llnl.util.tty as tty
 import llnl.util.tty.color as color
 from llnl.util.filesystem import working_dir
 
+import spack.bootstrap
 import spack.paths
 from spack.util.executable import which
 
@@ -47,6 +48,7 @@ exclude_directories = [spack.paths.external_path]
 #: order in which tools should be run. flake8 is last so that it can
 #: double-check the results of other tools (if, e.g., --fix was provided)
 tool_order = ["isort", "mypy", "black", "flake8"]
+tool_versions = {"isort": "4.3.5", "mypy": "0.900"}
 
 #: tools we run in spack style
 tools = {}
@@ -342,11 +344,20 @@ def style(parser, args):
             if getattr(args, tool_name):
                 run_function, required = tools[tool_name]
                 print_tool_header(tool_name)
+                tool_binary = tool_name
 
-                cmd = which(tool_name, required=required)
-                if not cmd:
-                    color.cprint("  @y{%s not in PATH, skipped}" % tool_name)
-                    continue
+                # Some tools have a required version
+                if tool_name in tool_versions:
+                    tool_name = "%s@%s" % (tool_name, tool_versions[tool_name])
+
+                # Bootstrap tools so we don't need to require install
+                with spack.bootstrap.ensure_bootstrap_configuration():
+                    spec = spack.spec.Spec("py-%s" % tool_name)
+                    cmd = spack.bootstrap.get_executable(tool_binary, spec=spec,
+                                                         install=True)
+                    if not cmd:
+                        color.cprint("  @y{%s not in PATH, skipped}" % tool_name)
+                        continue
 
                 returncode |= run_function(cmd, file_list, args)
 
