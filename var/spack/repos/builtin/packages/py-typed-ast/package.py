@@ -15,4 +15,5 @@ class PyTypedAst(PythonPackage):
     version('1.4.0', sha256='66480f95b8167c9c5c5c87f32cf437d585937970f3fc24386f313a4c97b44e34')
 
     depends_on('python@3.3:', type=('build', 'run'))
+    depends_on("python@:3.8")
     depends_on('py-setuptools', type='build')
