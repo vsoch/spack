@@ -31,5 +31,5 @@ class PyMypy(PythonPackage):
     patch(
         "https://github.com/python/typed_ast/commit/c6bf09c77290214408565dd33fa7236d0868134a.patch",
         sha256="800207a48d858831c181c77bed2c377c9616f7f803718f2ecdfbcda4fed62d89",
-        when="@0.900",
+        when="@0.900:",
     )
